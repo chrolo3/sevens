@@ -30,7 +30,7 @@ impl GameRules for Sevens {
                     (0, 0) => 1,                        // Empty range: 1 option
                     (1, r) if r == max_suit_range => 0, // Full range: 0 options
                     (1, _) => 1,                        // Min reached: 1 option
-                    (l, r) if r == max_suit_range => 1, // Max reached: 1 option
+                    (_, r) if r == max_suit_range => 1, // Max reached: 1 option
                     _ => 2,                             // Normal case: 2 options
                 }
             })
@@ -61,7 +61,7 @@ impl Strategy for VanillaRandom {
 
         // Otherwise, play a random card from the valid choices
         if !choices.is_empty() {
-            Some(choices[rng.gen_range(0..choices.len())]) // Use gen_range for uniform distribution
+            Some(choices[rng.random_range(0..choices.len())]) // Use gen_range for uniform distribution
         } else {
             None
         }
@@ -115,7 +115,7 @@ impl Strategy for LowestFirst {
                 return Some(index);
             }
 
-            Some(choices[rng.gen_range(0..choices.len())])
+            Some(choices[rng.random_range(0..choices.len())])
         } else {
             None
         }
@@ -168,7 +168,7 @@ impl Strategy for HighestFirst {
                 return Some(index);
             }
 
-            Some(choices[rng.gen_range(0..choices.len())])
+            Some(choices[rng.random_range(0..choices.len())])
         } else {
             None
         }

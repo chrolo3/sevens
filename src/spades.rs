@@ -65,7 +65,7 @@ impl GameRules for SevensSpades {
                             match (low, high) {
                                 (1, h) if h == max_suit_range => 0, // Full range
                                 (1, _) => 1,                        // Min reached
-                                (l, h) if h == max_suit_range => 1, // Max reached
+                                (_, h) if h == max_suit_range => 1, // Max reached
                                 _ => 2,                             // Normal case
                             }
                         } else {
@@ -78,7 +78,7 @@ impl GameRules for SevensSpades {
                                 match (low, high) {
                                     (1, h) if h == max_suit_range => 0, // Full range
                                     (1, _) => 1,                        // Min reached
-                                    (l, h) if h == max_suit_range => 1, // Max reached
+                                    (_, h) if h == max_suit_range => 1, // Max reached
                                     _ => 2,                             // Normal case
                                 }
                             } else {
@@ -141,7 +141,7 @@ impl Strategy for SpadesRandom {
 
         // Otherwise, play a random card from the valid choices
         if !choices.is_empty() {
-            Some(choices[rng.gen_range(0..choices.len())])
+            Some(choices[rng.random_range(0..choices.len())])
         } else {
             None
         }
@@ -192,7 +192,7 @@ impl Strategy for SpadeFirstStrategy {
                 }
             }
             // Otherwise random
-            Some(choices[rng.gen_range(0..choices.len())])
+            Some(choices[rng.random_range(0..choices.len())])
         } else {
             None
         }
@@ -242,7 +242,7 @@ impl Strategy for SpadeLastRandom {
                 }
             }
             // Otherwise random
-            Some(choices[rng.gen_range(0..choices.len())])
+            Some(choices[rng.random_range(0..choices.len())])
         } else {
             None
         }
@@ -307,7 +307,7 @@ impl Strategy for SpadesLastHighest {
                 return Some(index);
             }
 
-            Some(choices[rng.gen_range(0..choices.len())])
+            Some(choices[rng.random_range(0..choices.len())])
         } else {
             None
         }

@@ -72,7 +72,7 @@ fn generate_alphabetical_label(mut number: usize) -> String {
 
 pub fn alpha_suits(suit_count: usize) -> Vec<Suit> {
     let mut suits = Vec::with_capacity(suit_count);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for i in 0..suit_count {
         // Generate name and symbol using the helper function
@@ -82,9 +82,9 @@ pub fn alpha_suits(suit_count: usize) -> Vec<Suit> {
 
         // Generate bright color for dark themes
         let color = SuitColor::Custom(
-            rng.gen_range(128..=255), // Red
-            rng.gen_range(128..=255), // Green
-            rng.gen_range(128..=255), // Blue
+            rng.random_range(128..=255), // Red
+            rng.random_range(128..=255), // Green
+            rng.random_range(128..=255), // Blue
         );
 
         let rank = i;
@@ -141,19 +141,6 @@ impl<R: GameRules> GameBoard<R> {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        let mut board_string = String::new();
-        for suit in self.board.suits.iter() {
-            board_string.push_str(&format!(
-                "{} : {}-{}\n",
-                suit.to_string(),
-                self.board.ranges[suit.rank].0,
-                self.board.ranges[suit.rank].1
-            ));
-        }
-        board_string
-    }
-
     pub(crate) fn can_play(&self, card: &Card) -> bool {
         self.rules.can_play(&self.board, card)
     }
@@ -203,14 +190,6 @@ impl<R: GameRules> GameBoard<R> {
 }
 
 pub(crate) type Hand = Vec<Card>;
-
-// Add this function to format a hand as a string
-fn hand_to_string(hand: &[Card]) -> String {
-    hand.iter()
-        .map(|card| card.to_string())
-        .collect::<Vec<String>>()
-        .join(" ")
-}
 
 fn order_hand(hand: &mut Hand, n7: usize) {
     hand.sort_by(|a, b| {
@@ -263,7 +242,7 @@ fn play_game<R: GameRules + 'static>(
         }
     }
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     deck.shuffle(&mut rng);
 
     let mut hands: Vec<Hand> = vec![Vec::new(); player_count];
@@ -287,7 +266,7 @@ fn play_game<R: GameRules + 'static>(
         }
     }
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Create the game board with the provided rules
     let mut game_board = GameBoard::new(suits, n7, rules);
@@ -397,21 +376,16 @@ pub struct StrategyPerformanceData {
 
 struct SimulationStatistics {
     games_completed: usize,
-    total_cards_left: usize,
     player_wins: Vec<usize>,
-    strategy_names: Vec<String>, // Store strategy names for reference
+    strategy_names: Vec<String>,
     total_avg_options: f64,
     total_min_options: usize,
     total_max_options: usize,
     min_options_ever: usize,
     max_options_ever: usize,
     size_of_deck: usize,
-    n7: usize,
-    player_count: usize,
-    player_hand_size: usize,
-    suit_count: usize,             // New field to track the number of suits
-    n_size: usize,                 // New field to track n_size
-    strategy_advantage_score: f64, // New field to track strategy advantage
+    suit_count: usize,
+    n_size: usize,
 }
 
 impl SimulationStatistics {
@@ -422,11 +396,8 @@ impl SimulationStatistics {
         n_size: usize,
         strategy_names: Vec<String>,
     ) -> SimulationStatistics {
-        let player_hand_size = size_of_deck / player_count;
-        let n7 = n_size / 2;
         SimulationStatistics {
             games_completed: 0,
-            total_cards_left: 0,
             player_wins: vec![0; player_count],
             strategy_names,
             total_avg_options: 0.0,
@@ -435,12 +406,8 @@ impl SimulationStatistics {
             min_options_ever: usize::MAX,
             max_options_ever: 0,
             size_of_deck,
-            n7,
-            player_count,
-            player_hand_size,
             suit_count,
             n_size,
-            strategy_advantage_score: 0.0,
         }
     }
 
@@ -541,54 +508,10 @@ impl SimulationStatistics {
             total_max_options: self.total_max_options as f64 / 10000.0,
         }
     }
-
-    fn to_json(&self) -> String {
-        #[derive(Serialize)]
-        struct Statistics {
-            games_completed: usize,
-            total_cards_left: usize,
-            player_wins: Vec<usize>,
-            size_of_deck: usize,
-            n7: usize,
-            player_count: usize,
-            player_hand_size: usize,
-            total_avg_options: f64,
-            total_min_options: f64,
-            total_max_options: f64,
-            min_options_ever: usize,
-            max_options_ever: usize,
-        }
-
-        let stats = Statistics {
-            games_completed: self.games_completed,
-            total_cards_left: self.total_cards_left,
-            player_wins: self.player_wins.clone(),
-            size_of_deck: self.size_of_deck,
-            n7: self.n7,
-            player_count: self.player_count,
-            player_hand_size: self.player_hand_size,
-            total_avg_options: self.total_avg_options / self.games_completed as f64,
-            total_min_options: self.total_min_options as f64 / self.games_completed as f64,
-            total_max_options: self.total_max_options as f64 / self.games_completed as f64,
-            min_options_ever: if self.min_options_ever == usize::MAX {
-                0
-            } else {
-                self.min_options_ever
-            },
-            max_options_ever: self.max_options_ever,
-        };
-
-        serde_json::to_string_pretty(&stats).expect("Failed to serialize statistics")
-    }
 }
 
-pub(crate) fn run_simulations(player_count: usize, simulation_count: usize) {
+pub(crate) fn run_simulations_sevens(player_count: usize, simulation_count: usize) {
     // Define all available strategies
-
-    // Generate unique combinations of strategies (with repetition allowed)
-    // let strategy_index_combinations =
-    //     generate_strategy_combinations(player_count, strategies.len());
-
     let strategy_index_combinations = vec![
         vec![0, 0, 0, 0],
         vec![1, 1, 1, 1],
@@ -606,64 +529,16 @@ pub(crate) fn run_simulations(player_count: usize, simulation_count: usize) {
         vec![0, 1, 2, 2],
     ];
 
-    // let strategy_index_combinations = vec![
-    //     // All players using the same strategy (baselines)
-    //     vec![0, 0, 0, 0], // All random (strategy 0)
-    //     vec![1, 1, 1, 1], // All strategy 1
-    //     vec![2, 2, 2, 2], // All strategy 2
-    //     vec![3, 3, 3, 3], // All strategy 3
-    //     // Strategy 0 vs Strategy 1 combinations
-    //     vec![0, 0, 0, 1], // 3 strategy 0, 1 strategy 1
-    //     vec![0, 0, 1, 1], // 2 strategy 0, 2 strategy 1
-    //     vec![0, 1, 1, 1], // 1 strategy 0, 3 strategy 1
-    //     // Strategy 0 vs Strategy 2 combinations
-    //     vec![0, 0, 0, 2], // 3 strategy 0, 1 strategy 2
-    //     vec![0, 0, 2, 2], // 2 strategy 0, 2 strategy 2
-    //     vec![0, 2, 2, 2], // 1 strategy 0, 3 strategy 2
-    //     // Strategy 0 vs Strategy 3 combinations
-    //     vec![0, 0, 0, 3], // 3 strategy 0, 1 strategy 3
-    //     vec![0, 0, 3, 3], // 2 strategy 0, 2 strategy 3
-    //     vec![0, 3, 3, 3], // 1 strategy 0, 3 strategy 3
-    //     // Strategy 1 vs Strategy 2 combinations
-    //     vec![1, 1, 1, 2], // 3 strategy 1, 1 strategy 2
-    //     vec![1, 1, 2, 2], // 2 strategy 1, 2 strategy 2
-    //     vec![1, 2, 2, 2], // 1 strategy 1, 3 strategy 2
-    //     // Strategy 1 vs Strategy 3 combinations
-    //     vec![1, 1, 1, 3], // 3 strategy 1, 1 strategy 3
-    //     vec![1, 1, 3, 3], // 2 strategy 1, 2 strategy 3
-    //     vec![1, 3, 3, 3], // 1 strategy 1, 3 strategy 3
-    //     // Strategy 2 vs Strategy 3 combinations
-    //     vec![2, 2, 2, 3], // 3 strategy 2, 1 strategy 3
-    //     vec![2, 2, 3, 3], // 2 strategy 2, 2 strategy 3
-    //     vec![2, 3, 3, 3], // 1 strategy 2, 3 strategy 3
-    //     // Mixed strategy combinations (three different strategies)
-    //     vec![0, 1, 1, 2], // 1 strategy 0, 2 strategy 1, 1 strategy 2
-    //     vec![0, 1, 2, 2], // 1 strategy 0, 1 strategy 1, 2 strategy 2
-    //     vec![0, 0, 1, 2], // 2 strategy 0, 1 strategy 1, 1 strategy 2
-    //     vec![0, 1, 1, 3], // 1 strategy 0, 2 strategy 1, 1 strategy 3
-    //     vec![0, 1, 3, 3], // 1 strategy 0, 1 strategy 1, 2 strategy 3
-    //     vec![0, 0, 1, 3], // 2 strategy 0, 1 strategy 1, 1 strategy 3
-    //     vec![0, 2, 2, 3], // 1 strategy 0, 2 strategy 2, 1 strategy 3
-    //     vec![0, 2, 3, 3], // 1 strategy 0, 1 strategy 2, 2 strategy 3
-    //     vec![0, 0, 2, 3], // 2 strategy 0, 1 strategy 2, 1 strategy 3
-    //     vec![1, 2, 2, 3], // 1 strategy 1, 2 strategy 2, 1 strategy 3
-    //     vec![1, 2, 3, 3], // 1 strategy 1, 1 strategy 2, 2 strategy 3
-    //     vec![1, 1, 2, 3], // 2 strategy 1, 1 strategy 2, 1 strategy 3
-    //     // Four different strategies in one game (positional testing)
-    //     vec![0, 1, 2, 3], // All four strategies present
-    // ];
-
     println!(
         "Testing {} different strategy combinations",
         strategy_index_combinations.len()
     );
 
-    let player_count = 4;
     let suit_counts: Vec<usize> = vec![
-        4, 4, 4, 4, 8, 8, 8, 8, 16, 16, 16, 16, 32, 32, 32, 32, 64, 64, 64, 64,
+        4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 16, 16, 16, 16, 16, 32, 32, 32, 32, 32, 48, 48, 48, 48, 48, 64, 64, 64, 64, 64,
     ];
     let suit_n_size: Vec<usize> = vec![
-        13, 27, 55, 111, 13, 27, 55, 111, 13, 27, 55, 111, 13, 27, 55, 111, 13, 27, 55, 111,
+        13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111,
     ];
     let all_performance_data = Mutex::new(Vec::new());
 
@@ -674,16 +549,9 @@ pub(crate) fn run_simulations(player_count: usize, simulation_count: usize) {
             let combo_results: Vec<StrategyPerformanceData> = strategy_index_combinations
                 .par_iter()
                 .enumerate() // This should work with par_iter
-                .map(|(combo_index, strategy_index_combination)| {
+                .map(|(_, strategy_index_combination)| {
                     let strategies: Vec<&dyn Strategy<Rules = Sevens>> =
                         vec![&VanillaRandom, &LowestFirst, &HighestFirst];
-
-                    // let strategies: Vec<&dyn Strategy<Rules = SevensSpades>> = vec![
-                    //     &SpadesRandom,
-                    //     &SpadeFirstStrategy,
-                    //     &SpadeLastRandom,
-                    //     &SpadesLastHighest,
-                    // ];
 
                     let strategy_assignment: Vec<&dyn Strategy<Rules = Sevens>> =
                         strategy_index_combination
@@ -705,7 +573,6 @@ pub(crate) fn run_simulations(player_count: usize, simulation_count: usize) {
                         *n_size,
                         combo_strategy_names,
                     );
-                    let mut ties = 0;
 
                     for _ in 0..simulation_count {
                         let result = play_game(
@@ -718,9 +585,6 @@ pub(crate) fn run_simulations(player_count: usize, simulation_count: usize) {
 
                         stats.record_result(&result);
 
-                        if result.winner.is_none() {
-                            ties += 1;
-                        }
                     }
 
                     stats.get_performance_data()
@@ -730,22 +594,148 @@ pub(crate) fn run_simulations(player_count: usize, simulation_count: usize) {
             all_performance_data.lock().unwrap().extend(combo_results);
         });
 
-    save_strategy_performance_data(&all_performance_data);
+    save_strategy_performance_data(&all_performance_data, "sevens");
 
     let final_results = all_performance_data.into_inner().unwrap();
 
-    analyze_game_statistics(&final_results);
+    analyze_game_statistics(&final_results, "sevens");
 }
 
-fn save_strategy_performance_data(data: &Mutex<Vec<StrategyPerformanceData>>) {
+pub(crate) fn run_simulations_spades(player_count: usize, simulation_count: usize) {
+    // Define all available strategies
+    let strategy_index_combinations = vec![
+        // All players using the same strategy (baselines)
+        vec![0, 0, 0, 0], // All random (strategy 0)
+        vec![1, 1, 1, 1], // All strategy 1
+        vec![2, 2, 2, 2], // All strategy 2
+        vec![3, 3, 3, 3], // All strategy 3
+        // Strategy 0 vs Strategy 1 combinations
+        vec![0, 0, 0, 1], // 3 strategy 0, 1 strategy 1
+        vec![0, 0, 1, 1], // 2 strategy 0, 2 strategy 1
+        vec![0, 1, 1, 1], // 1 strategy 0, 3 strategy 1
+        // Strategy 0 vs Strategy 2 combinations
+        vec![0, 0, 0, 2], // 3 strategy 0, 1 strategy 2
+        vec![0, 0, 2, 2], // 2 strategy 0, 2 strategy 2
+        vec![0, 2, 2, 2], // 1 strategy 0, 3 strategy 2
+        // Strategy 0 vs Strategy 3 combinations
+        vec![0, 0, 0, 3], // 3 strategy 0, 1 strategy 3
+        vec![0, 0, 3, 3], // 2 strategy 0, 2 strategy 3
+        vec![0, 3, 3, 3], // 1 strategy 0, 3 strategy 3
+        // Strategy 1 vs Strategy 2 combinations
+        vec![1, 1, 1, 2], // 3 strategy 1, 1 strategy 2
+        vec![1, 1, 2, 2], // 2 strategy 1, 2 strategy 2
+        vec![1, 2, 2, 2], // 1 strategy 1, 3 strategy 2
+        // Strategy 1 vs Strategy 3 combinations
+        vec![1, 1, 1, 3], // 3 strategy 1, 1 strategy 3
+        vec![1, 1, 3, 3], // 2 strategy 1, 2 strategy 3
+        vec![1, 3, 3, 3], // 1 strategy 1, 3 strategy 3
+        // Strategy 2 vs Strategy 3 combinations
+        vec![2, 2, 2, 3], // 3 strategy 2, 1 strategy 3
+        vec![2, 2, 3, 3], // 2 strategy 2, 2 strategy 3
+        vec![2, 3, 3, 3], // 1 strategy 2, 3 strategy 3
+        // Mixed strategy combinations (three different strategies)
+        vec![0, 1, 1, 2], // 1 strategy 0, 2 strategy 1, 1 strategy 2
+        vec![0, 1, 2, 2], // 1 strategy 0, 1 strategy 1, 2 strategy 2
+        vec![0, 0, 1, 2], // 2 strategy 0, 1 strategy 1, 1 strategy 2
+        vec![0, 1, 1, 3], // 1 strategy 0, 2 strategy 1, 1 strategy 3
+        vec![0, 1, 3, 3], // 1 strategy 0, 1 strategy 1, 2 strategy 3
+        vec![0, 0, 1, 3], // 2 strategy 0, 1 strategy 1, 1 strategy 3
+        vec![0, 2, 2, 3], // 1 strategy 0, 2 strategy 2, 1 strategy 3
+        vec![0, 2, 3, 3], // 1 strategy 0, 1 strategy 2, 2 strategy 3
+        vec![0, 0, 2, 3], // 2 strategy 0, 1 strategy 2, 1 strategy 3
+        vec![1, 2, 2, 3], // 1 strategy 1, 2 strategy 2, 1 strategy 3
+        vec![1, 2, 3, 3], // 1 strategy 1, 1 strategy 2, 2 strategy 3
+        vec![1, 1, 2, 3], // 2 strategy 1, 1 strategy 2, 1 strategy 3
+        // Four different strategies in one game (positional testing)
+        vec![0, 1, 2, 3], // All four strategies present
+    ];
+
+    println!(
+        "Testing {} different strategy combinations",
+        strategy_index_combinations.len()
+    );
+
+    let suit_counts: Vec<usize> = vec![
+        4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 16, 16, 16, 16, 16, 32, 32, 32, 32, 32, 48, 48, 48, 48, 48, 64, 64, 64, 64, 64,
+    ];
+    let suit_n_size: Vec<usize> = vec![
+        13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111, 13, 27, 55, 83, 111,
+    ];
+    let all_performance_data = Mutex::new(Vec::new());
+
+    suit_counts
+        .iter()
+        .zip(suit_n_size.iter())
+        .for_each(|(suit_count, n_size)| {
+            let combo_results: Vec<StrategyPerformanceData> = strategy_index_combinations
+                .par_iter()
+                .enumerate() // This should work with par_iter
+                .map(|(_, strategy_index_combination)| {
+
+                    let strategies: Vec<&dyn Strategy<Rules = SevensSpades>> = vec![
+                        &SpadesRandom,
+                        &SpadeFirstStrategy,
+                        &SpadeLastRandom,
+                        &SpadesLastHighest,
+                    ];
+
+                    let strategy_assignment: Vec<&dyn Strategy<Rules = SevensSpades>> =
+                        strategy_index_combination
+                            .iter()
+                            .map(|&index| strategies[index])
+                            .collect();
+
+                    let combo_strategy_names: Vec<String> = strategy_assignment
+                        .iter()
+                        .map(|s| format!("{:?}", s))
+                        .collect();
+
+                    let size_of_deck = suit_count * n_size;
+
+                    let mut stats = SimulationStatistics::new(
+                        player_count,
+                        size_of_deck,
+                        *suit_count,
+                        *n_size,
+                        combo_strategy_names,
+                    );
+
+                    for _ in 0..simulation_count {
+                        let result = play_game(
+                            &strategy_assignment,
+                            SevensSpades,
+                            player_count,
+                            *suit_count,
+                            *n_size,
+                        );
+
+                        stats.record_result(&result);
+                    }
+
+                    stats.get_performance_data()
+                })
+                .collect();
+
+            all_performance_data.lock().unwrap().extend(combo_results);
+        });
+
+    save_strategy_performance_data(&all_performance_data, "spades");
+
+    let final_results = all_performance_data.into_inner().unwrap();
+
+    analyze_game_statistics(&final_results, "spades");
+}
+
+fn save_strategy_performance_data(data: &Mutex<Vec<StrategyPerformanceData>>, name: &str) {
     let json = serde_json::to_string_pretty(data).unwrap();
-    std::fs::write("strategy_performance_data.json", json)
+    let file_name = format!("{}_strategy_performance_data.json", name);
+    std::fs::write(file_name, json)
         .expect("Failed to write strategy performance data to file");
     println!("Strategy performance data saved to 'strategy_performance_data.json'");
 }
 
-fn analyze_game_statistics(data: &[StrategyPerformanceData]) {
-    println!("\n=== GAME STATISTICS ANALYSIS ===");
+fn analyze_game_statistics(data: &[StrategyPerformanceData], name: &str) {
+    println!("\n=== GAME STATISTICS ANALYSIS ({}) ===", name);
 
     // Group data by suit count
     let mut by_suit_count: HashMap<usize, Vec<&StrategyPerformanceData>> = HashMap::new();
@@ -754,19 +744,18 @@ fn analyze_game_statistics(data: &[StrategyPerformanceData]) {
     }
 
     // Calculate statistics for each suit count
-    let mut game_stats: Vec<(usize, usize, f64, f64, f64, f64)> = by_suit_count
+    let mut game_stats: Vec<(usize, usize, f64, f64, f64, f64, f64, f64, f64)> = by_suit_count
         .iter()
         .map(|(&suit_count, items)| {
             let configurations = items.len();
             let total_games = configurations * 10000; // 10,000 games per configuration
-            let avg_deck_size =
-                items.iter().map(|i| i.deck_size).sum::<usize>() as f64 / items.len() as f64;
-            let avg_options_per_turn =
-                items.iter().map(|i| i.avg_options_per_turn).sum::<f64>() / items.len() as f64;
-            let avg_min_options =
-                items.iter().map(|i| i.min_options).sum::<usize>() as f64 / items.len() as f64;
-            let avg_max_options =
-                items.iter().map(|i| i.max_options).sum::<usize>() as f64 / items.len() as f64;
+            let avg_deck_size = items.iter().map(|i| i.deck_size).sum::<usize>() as f64 / items.len() as f64;
+            let avg_options_per_turn = items.iter().map(|i| i.avg_options_per_turn).sum::<f64>() / items.len() as f64;
+            let avg_min_options = items.iter().map(|i| i.min_options).sum::<usize>() as f64 / items.len() as f64;
+            let avg_max_options = items.iter().map(|i| i.max_options).sum::<usize>() as f64 / items.len() as f64;
+            let avg_strategy_advantage = items.iter().map(|i| i.strategy_advantage_factor).sum::<f64>() / items.len() as f64;
+            let avg_win_rate_variance = items.iter().map(|i| i.win_rate_variance).sum::<f64>() / items.len() as f64;
+            let avg_max_win_diff = items.iter().map(|i| i.max_win_rate_diff).sum::<f64>() / items.len() as f64;
 
             (
                 suit_count,
@@ -775,191 +764,151 @@ fn analyze_game_statistics(data: &[StrategyPerformanceData]) {
                 avg_options_per_turn,
                 avg_min_options,
                 avg_max_options,
+                avg_strategy_advantage,
+                avg_win_rate_variance,
+                avg_max_win_diff,
             )
         })
         .collect();
 
     // Sort by suit count
-    game_stats.sort_by_key(|&(count, _, _, _, _, _)| count);
+    game_stats.sort_by_key(|&(count, _, _, _, _, _, _, _, _)| count);
 
-    // Print table header
-    println!("| Suits | Total Games | Configurations | Avg Deck Size | Avg Options/Turn | Min Options | Max Options |");
-    println!("|-------|-------------|----------------|---------------|------------------|-------------|-------------|");
+    // Print comprehensive table
+    println!("\n📊 DETAILED STATISTICS BY SUIT COUNT");
+    println!("| Suits | Games | Configs | Deck | Avg Opts | Min | Max | Strat Adv | Variance | Max Diff |");
+    println!("|-------|-------|---------|------|----------|-----|-----|-----------|----------|----------|");
 
-    // Print each row
-    // Print each row
-    for (suit_count, total_games, deck_size, avg_options, min_opts, max_opts) in &game_stats {
+    for (suit_count, total_games, deck_size, avg_options, min_opts, max_opts, strat_adv, variance, max_diff) in &game_stats {
         let configurations = total_games / 10000;
         println!(
-            "| {:5} | {:11} | {:14} | {:13.1} | {:16.2} | {:11.2} | {:11.2} |",
-            suit_count, total_games, configurations, deck_size, avg_options, min_opts, max_opts
+            "| {:5} | {:5}k | {:7} | {:4.0} | {:8.2} | {:3.0} | {:3.0} | {:9.3} | {:8.3} | {:8.2}% |",
+            suit_count,
+            total_games / 1000,
+            configurations,
+            deck_size,
+            avg_options,
+            min_opts,
+            max_opts,
+            strat_adv,
+            variance,
+            max_diff * 100.0
         );
     }
 
     // Calculate overall statistics
-    let total_games: usize = game_stats.iter().map(|(_, games, _, _, _, _)| games).sum();
-    let total_configurations: usize = game_stats
-        .iter()
-        .map(|(_, games, _, _, _, _)| games / 10000)
-        .sum();
+    let total_games: usize = game_stats.iter().map(|(_, games, _, _, _, _, _, _, _)| games).sum();
+    let total_configurations: usize = game_stats.iter().map(|(_, games, _, _, _, _, _, _, _)| games / 10000).sum();
     let avg_options_overall: f64 = game_stats
         .iter()
-        .map(|(_, games, _, avg_opts, _, _)| avg_opts * (*games as f64))
-        .sum::<f64>()
-        / total_games as f64;
+        .map(|(_, games, _, avg_opts, _, _, _, _, _)| avg_opts * (*games as f64))
+        .sum::<f64>() / total_games as f64;
 
-    println!("\n=== OVERALL STATISTICS ===");
-    println!(
-        "Total strategy configurations tested: {}",
-        total_configurations
-    );
-    println!(
-        "Total games played: {} ({} games per configuration)",
-        total_games, 10000
-    );
-    println!(
-        "Average options per turn (weighted): {:.2}",
-        avg_options_overall
-    );
+    println!("\n🎯 OVERALL PERFORMANCE METRICS");
+    println!("Total strategy configurations tested: {:}", total_configurations);
+    println!("Total games simulated: {:} ({:} games per config)", total_games, 10000);
+    println!("Average options per turn (weighted): {:.2}", avg_options_overall);
 
-    // Calculate total simulation time estimate
-    let total_decisions = total_games as f64 * avg_options_overall;
-    println!("Estimated total decisions made: {:.0}", total_decisions);
-
-    // Find configuration with most/least complexity
+    // Game complexity analysis
     if let (Some(min_complexity), Some(max_complexity)) = (
-        game_stats
-            .iter()
-            .min_by(|a, b| a.3.partial_cmp(&b.3).unwrap()),
-        game_stats
-            .iter()
-            .max_by(|a, b| a.3.partial_cmp(&b.3).unwrap()),
+        game_stats.iter().min_by(|a, b| a.3.partial_cmp(&b.3).unwrap()),
+        game_stats.iter().max_by(|a, b| a.3.partial_cmp(&b.3).unwrap()),
     ) {
-        println!("\nGame Complexity Analysis:");
-        println!(
-            "Simplest configuration: {} suits ({:.2} avg options/turn)",
-            min_complexity.0, min_complexity.3
-        );
-        println!(
-            "Most complex configuration: {} suits ({:.2} avg options/turn)",
-            max_complexity.0, max_complexity.3
-        );
+        println!("\n🧠 GAME COMPLEXITY ANALYSIS");
+        println!("Simplest configuration: {} suits ({:.2} avg options/turn)", min_complexity.0, min_complexity.3);
+        println!("Most complex configuration: {} suits ({:.2} avg options/turn)", max_complexity.0, max_complexity.3);
 
         let complexity_ratio = max_complexity.3 / min_complexity.3;
-        println!("Complexity ratio: {:.2}x", complexity_ratio);
+        println!("Complexity multiplier: {:.2}x increase", complexity_ratio);
 
-        // Compare decision load between simplest and most complex
-        let simple_decisions_per_10k = 10000.0 * min_complexity.3 * min_complexity.2 * 0.75;
-        let complex_decisions_per_10k = 10000.0 * max_complexity.3 * max_complexity.2 * 0.75;
-        println!(
-            "Decision load difference: {:.0} vs {:.0} decisions per 10k games",
-            simple_decisions_per_10k, complex_decisions_per_10k
-        );
+        let option_range_simple = max_complexity.5 - min_complexity.4;
+        let option_range_complex = max_complexity.5 - max_complexity.4;
+        println!("Decision range: {:.0} options (simple) vs {:.0} options (complex)",
+                 option_range_simple, option_range_complex);
     }
 
-    // Analyze trends
-    println!("\n=== TREND ANALYSIS ===");
-    let options_trend = game_stats
-        .windows(2)
-        .map(|w| {
-            if w[1].3 > w[0].3 {
-                1
-            } else if w[1].3 < w[0].3 {
-                -1
-            } else {
-                0
-            }
-        })
-        .sum::<i32>();
+    // Strategy effectiveness analysis
+    println!("\n⚔️ STRATEGY EFFECTIVENESS ANALYSIS");
+    let avg_strategy_advantage: f64 = game_stats.iter()
+                                                .map(|(_, games, _, _, _, _, adv, _, _)| adv * (*games as f64))
+                                                .sum::<f64>() / total_games as f64;
 
-    match options_trend {
-        x if x > 0 => println!("✓ Game complexity generally increases with more suits"),
-        x if x < 0 => println!("✓ Game complexity generally decreases with more suits"),
-        _ => println!("~ Game complexity shows mixed trends across suit counts"),
+    let avg_variance: f64 = game_stats.iter()
+                                      .map(|(_, games, _, _, _, _, _, var, _)| var * (*games as f64))
+                                      .sum::<f64>() / total_games as f64;
+
+    let avg_max_diff: f64 = game_stats.iter()
+                                      .map(|(_, games, _, _, _, _, _, _, diff)| diff * (*games as f64))
+                                      .sum::<f64>() / total_games as f64;
+
+    println!("Average strategy advantage factor: {:.3}", avg_strategy_advantage);
+    println!("Average win rate variance: {:.3}", avg_variance);
+    println!("Average max win rate difference: {:.2}%", avg_max_diff * 100.0);
+
+    if avg_strategy_advantage > 1.5 {
+        println!("🟢 High strategy differentiation - skill matters significantly");
+    } else if avg_strategy_advantage > 1.2 {
+        println!("🟡 Moderate strategy differentiation - some skill advantage");
+    } else {
+        println!("🔴 Low strategy differentiation - mostly luck-based");
     }
 
-    // Estimate timing per 10,000 games (assuming 1ms per option consideration)
-    println!("\n=== ESTIMATED TIMING PER 10,000 GAMES ===");
-    for (suit_count, _, deck_size, avg_options, _, _) in &game_stats {
-        let estimated_turns_per_game = deck_size * 0.75; // Rough estimate of turns per game
+    // Performance trends
+    println!("\n📈 TREND ANALYSIS");
+    let complexity_trend = game_stats.windows(2)
+                                     .map(|w| if w[1].3 > w[0].3 { 1 } else if w[1].3 < w[0].3 { -1 } else { 0 })
+                                     .sum::<i32>();
+
+    let strategy_trend = game_stats.windows(2)
+                                   .map(|w| if w[1].6 > w[0].6 { 1 } else if w[1].6 < w[0].6 { -1 } else { 0 })
+                                   .sum::<i32>();
+
+    match complexity_trend {
+        x if x > 0 => println!("🔺 Complexity increases with more suits (+{})", x),
+        x if x < 0 => println!("🔻 Complexity decreases with more suits ({})", x),
+        _ => println!("➡️ Complexity remains stable across suit counts"),
+    }
+
+    match strategy_trend {
+        x if x > 0 => println!("🔺 Strategy importance increases with more suits (+{})", x),
+        x if x < 0 => println!("🔻 Strategy importance decreases with more suits ({})", x),
+        _ => println!("➡️ Strategy importance remains stable across suit counts"),
+    }
+
+    // Computational cost analysis
+    println!("\n💻 COMPUTATIONAL COST ANALYSIS");
+    let mut total_estimated_decisions = 0.0;
+    for (suit_count, _, deck_size, avg_options, _, _, _, _, _) in &game_stats {
+        let estimated_turns_per_game = deck_size * 0.75; // Rough estimate
         let decisions_per_game = estimated_turns_per_game * avg_options;
         let total_decisions_10k = decisions_per_game * 10000.0;
-        let estimated_ms = total_decisions_10k; // 1ms per decision
-        let estimated_seconds = estimated_ms / 1000.0;
+        total_estimated_decisions += total_decisions_10k;
+
+        let estimated_seconds = total_decisions_10k / 1000.0; // Assuming 1ms per decision
         let estimated_minutes = estimated_seconds / 60.0;
 
-        println!(
-            "{} suits: {:.0} decisions, {:.1}s ({:.1} min) per 10k games",
-            suit_count, total_decisions_10k, estimated_seconds, estimated_minutes
-        );
+        println!("{} suits: {:8.0} decisions, {:6.1}s ({:4.1} min) per 10k games",
+                 suit_count, total_decisions_10k, estimated_seconds, estimated_minutes);
     }
 
-    // Save statistics summary
-    let stats_summary = serde_json::json!({
-        "games_per_configuration": 10000,
-        "total_games": total_games,
-        "total_configurations": total_configurations,
-        "avg_options_overall": avg_options_overall,
-        "total_decisions_estimated": total_games as f64 * avg_options_overall,
-        "suit_statistics": game_stats.iter().map(|(suits, total_games, deck, opts, min, max)| {
-            serde_json::json!({
-                "suit_count": suits,
-                "total_games": total_games,
-                "configurations": total_games / 10000,
-                "games_per_configuration": 10000,
-                "avg_deck_size": deck,
-                "avg_options_per_turn": opts,
-                "min_options": min,
-                "max_options": max,
-                "estimated_decisions_per_10k_games": deck * 0.75 * opts * 10000.0
-            })
-        }).collect::<Vec<_>>()
-    });
+    println!("\nTotal estimated decisions across all simulations: {:.0}", total_estimated_decisions);
+    println!("Estimated total computation time: {:.1} hours", total_estimated_decisions / 1000.0 / 3600.0);
 
-    let json = serde_json::to_string_pretty(&stats_summary).unwrap();
-    std::fs::write("game_statistics_summary.json", json)
-        .expect("Failed to write game statistics to file");
-    println!("\nGame statistics saved to 'game_statistics_summary.json'");
-}
+    // Performance recommendations
+    println!("\n💡 PERFORMANCE INSIGHTS");
 
-// Generate all combinations of strategies with repetition allowed
-fn generate_strategy_combinations(player_count: usize, strategy_count: usize) -> Vec<Vec<usize>> {
-    let mut result = Vec::new();
-    let mut current = vec![0; player_count];
-
-    generate_combinations_recursive(strategy_count, &mut current, 0, player_count, &mut result);
-
-    result
-}
-
-fn generate_combinations_recursive(
-    strategy_count: usize,
-    current: &mut Vec<usize>,
-    position: usize,
-    player_count: usize,
-    result: &mut Vec<Vec<usize>>,
-) {
-    if position == player_count {
-        result.push(current.clone());
-        return;
+    if let Some(sweet_spot) = game_stats.iter()
+                                        .max_by(|a, b| (a.6 / a.3).partial_cmp(&(b.6 / b.3)).unwrap()) {
+        println!("🎯 Optimal complexity/strategy ratio: {} suits", sweet_spot.0);
     }
 
-    // Start from the last strategy used (or 0 if first position)
-    // This ensures we only generate non-decreasing sequences (combinations)
-    let start = if position == 0 {
-        0
-    } else {
-        current[position - 1]
-    };
-
-    for strategy_index in start..strategy_count {
-        current[position] = strategy_index;
-        generate_combinations_recursive(
-            strategy_count,
-            current,
-            position + 1,
-            player_count,
-            result,
-        );
+    if avg_max_diff > 0.15 {
+        println!("⚠️ High strategy impact detected - consider strategy balancing");
     }
+
+    if complexity_trend > 2 {
+        println!("📊 Strong complexity scaling - good for difficulty progression");
+    }
+
+    println!("{}", "\n".to_owned() + "=".repeat(70).as_str());
 }
